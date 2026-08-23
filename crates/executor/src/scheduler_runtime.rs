@@ -89,9 +89,13 @@ pub async fn redeliver_pending_wakes(
             continue;
         };
         send_conversation_wakeup(conversation.as_ref(), fire.prompt.clone()).await?;
+        // DST: same wakeup-before-mark window as the primary path; a crash
+        // here is what bounds redelivery to at-most-one repeat per slot.
+        let _ = patina_dst::buggify_delay!("sched-redeliver-wakeup-to-mark-gap");
         store
             .mark_fire_delivered(&fire.task_id, fire.slot_ms)
             .await?;
+        patina_dst::sometimes!(true, "sched-redelivery-delivered");
         delivered += 1;
     }
     Ok(delivered)
@@ -350,7 +354,12 @@ async fn run_task_inner(
         fired_at_ms: now_ms(),
     };
     store.put_pending_fire(&fire).await?;
+    // DST: widen both documented crash windows — dying after the record but
+    // before the wakeup must leave a redeliverable trace; dying after the
+    // wakeup but before the mark may repeat it exactly once.
+    let _ = patina_dst::buggify_delay!("sched-fire-record-to-wakeup-gap");
     send_conversation_wakeup(conversation.as_ref(), fire.prompt.clone()).await?;
+    let _ = patina_dst::buggify_delay!("sched-wakeup-to-mark-gap");
     store
         .mark_fire_delivered(&fire.task_id, fire.slot_ms)
         .await?;

@@ -65,6 +65,7 @@ async fn acquire_wakeup_lock(conversation_id: &str) -> Result<std::fs::File> {
         match file.try_lock() {
             Ok(()) => return Ok(file),
             Err(TryLockError::WouldBlock) => {
+                patina_dst::sometimes!(true, "wakeup-lock-contended");
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
             Err(TryLockError::Error(error)) => {

@@ -320,6 +320,10 @@ impl AdapterStore {
             fs::create_dir_all(self.inflight_dir(adapter_id)).await?;
             let inflight_path = self.inflight_path(adapter_id, &message.id);
             write_json_file(&inflight_path, &message).await?;
+            // DST: a crash here leaves the message in both outbox/ and
+            // inflight/ — the next claim re-sends it with a diverged attempt
+            // count.
+            let _ = patina_dst::buggify_delay!("outbox-claim-write-remove-gap");
             remove_file_if_exists(path).await?;
             messages.push(message);
         }
@@ -345,6 +349,9 @@ impl AdapterStore {
         message.last_error = None;
         fs::create_dir_all(self.delivered_dir(adapter_id)).await?;
         write_json_file(&self.delivered_path(adapter_id, message_id), &message).await?;
+        // DST: a crash here leaves the message in delivered/ and inflight/ at
+        // once; recovery must not re-send an acknowledged message.
+        let _ = patina_dst::buggify_delay!("outbox-ack-write-remove-gap");
         self.remove_pending_copies(adapter_id, message_id).await?;
         Ok(Some(message))
     }
@@ -380,6 +387,10 @@ impl AdapterStore {
             fs::create_dir_all(self.outbox_dir(adapter_id)).await?;
             write_json_file(&self.outbox_path(adapter_id, message_id), &message).await?;
         }
+        // DST: the message now has two homes (inflight/ plus outbox/ or
+        // failed/). A crash here must neither lose it nor let the next claim
+        // deliver it twice.
+        let _ = patina_dst::buggify_delay!("outbox-nack-write-remove-gap");
         remove_file_if_exists(self.inflight_path(adapter_id, message_id)).await?;
         Ok(Some(message))
     }

@@ -339,6 +339,30 @@ impl ScheduledTaskRecord {
         let fired_slots = u32::try_from(fire_slots.len()).unwrap_or(u32::MAX);
         let skipped_slots =
             u32::try_from(backlog.saturating_sub(fire_slots.len() as u64)).unwrap_or(u32::MAX);
+        // DST oracles: the plan's own accounting must balance, the catch-up
+        // cap must hold, and slots must fire oldest-first; the interesting
+        // policy branches must actually be reachable under the sweep.
+        patina_dst::always!(
+            u64::from(fired_slots) + u64::from(skipped_slots) == backlog,
+            "sched-plan-accounting-balances"
+        );
+        patina_dst::always!(
+            fire_slots.len() <= MAX_MISSED_FIRE_CATCHUP as usize,
+            "sched-plan-catchup-capped"
+        );
+        patina_dst::always!(
+            fire_slots.windows(2).all(|pair| pair[0] < pair[1]),
+            "sched-plan-slots-ascend"
+        );
+        patina_dst::sometimes!(
+            overdue > 0 && matches!(self.missed, MissedPolicy::Skip),
+            "sched-skip-policy-engaged"
+        );
+        patina_dst::sometimes!(
+            overdue > 0 && matches!(self.missed, MissedPolicy::All),
+            "sched-all-policy-engaged"
+        );
+        patina_dst::sometimes!(truncated, "sched-catchup-truncated");
         Ok(MissedFirePlan {
             fire_slots,
             next_run_at_ms: schedule.next_slot_after_ms(self.anchor_ms, now_ms),
@@ -357,6 +381,17 @@ impl ScheduledTaskRecord {
     /// Applies a plan once its fires are done: back onto the grid, lease
     /// released, and the evaluation recorded.
     pub fn resume_after_fires(&mut self, plan: &MissedFirePlan, now_ms: u64) {
+        // DST oracle: a recurring task must resume on its anchor grid — an
+        // off-grid resume is the drift bug the grid design exists to prevent.
+        if !plan.completes
+            && let Ok(ParsedSchedule::Every { interval_ms }) = parse_schedule(&self.schedule)
+        {
+            patina_dst::always!(
+                plan.next_run_at_ms >= self.anchor_ms
+                    && (plan.next_run_at_ms - self.anchor_ms) % interval_ms == 0,
+                "sched-resume-on-grid"
+            );
+        }
         self.updated_at_ms = now_ms;
         self.next_run_at_ms = plan.next_run_at_ms;
         if let Some(slot) = plan.fire_slots.last() {

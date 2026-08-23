@@ -9,6 +9,9 @@ rust-version.workspace = true
 default = []
 aws-agentcore = ["exoharness/aws-agentcore"]
 firecracker = ["exoharness/firecracker"]
+# Passthrough so binaries that offer the keychain secret backend (the CLI) can
+# opt in without every consumer linking the keyring dependency chain.
+apple-keychain = ["exoharness/apple-keychain"]
 
 [dependencies]
 anyhow.workspace = true
@@ -20,12 +23,12 @@ braintrust-sdk-rust.workspace = true
 bytes.workspace = true
 chrono.workspace = true
 cost = { path = "../cost" }
-exoharness = { path = "../exoharness", features = [
-  "apple-keychain",
-  "basic-backend",
-] }
+exoharness = { path = "../exoharness", features = ["basic-backend"] }
 futures.workspace = true
 lingua.workspace = true
+# Deterministic-simulation instrumentation (buggify/sometimes/always). Every
+# macro is a no-op outside a Patina run, so production builds are unaffected.
+patina-dst = { git = "https://github.com/JacobHayes/patina.git", rev = "c7e9c9fbb1e5a40cd01210b0a1f494a3c4fdfa2c" }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

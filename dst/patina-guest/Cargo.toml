@@ -1,0 +1,24 @@
+[package]
+name = "exo-patina-guest"
+version = "0.1.0"
+edition = "2024"
+
+# Standalone: deliberately not a member of the exo workspace, so patina can
+# build it as its own package with its own lockfile.
+[workspace]
+
+[dependencies]
+executor = { path = "../../crates/executor" }
+exoharness = { path = "../../crates/exoharness", features = ["basic-backend", "contract-tests"] }
+patina-dst = { git = "https://github.com/JacobHayes/patina.git", rev = "c7e9c9fbb1e5a40cd01210b0a1f494a3c4fdfa2c" }
+anyhow = "1"
+async-trait = "0.1"
+chrono = "0.4"
+lingua = { git = "https://github.com/braintrustdata/lingua.git", rev = "3ab9bcc9b58688be37216e9ab0b3d8362d185cfb" }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+[profile.dev]
+# Keep debug_assert! and overflow checks: they are free oracles under DST.
+debug = true

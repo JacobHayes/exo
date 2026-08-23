@@ -96,6 +96,9 @@ impl SchedulerStore {
         let mut due = self.due_tasks(now_ms).await?;
         due.sort_by_key(|task| task.next_run_at_ms);
         due.truncate(limit);
+        // DST: widen the unconditional read-modify-write window this method's
+        // doc comment already concedes, so a second runner can land inside it.
+        let _ = patina_dst::buggify_delay!("sched-claim-read-write-gap");
         let mut claimed = Vec::new();
         for mut task in due {
             task.claim(now_ms, lease_ms);
@@ -147,8 +150,13 @@ impl SchedulerStore {
     /// wakeup the conversation has already had.
     pub async fn put_pending_fire(&self, fire: &ScheduledFireRecord) -> Result<()> {
         if self.fire_was_delivered(&fire.task_id, fire.slot_ms).await? {
+            patina_dst::sometimes!(true, "sched-pending-fire-dedupe-hit");
             return Ok(());
         }
+        // DST: widen the delivered-check/write gap so a concurrent
+        // mark_fire_delivered can land between them (a delivered fire would be
+        // resurrected into pending and woken again).
+        let _ = patina_dst::buggify_delay!("sched-pending-fire-check-write-gap");
         fs::create_dir_all(self.pending_fires_dir()).await?;
         let path = self.pending_fire_path(&fire.task_id, fire.slot_ms);
         write_json_file(&path, fire)

@@ -22,6 +22,9 @@ pub(crate) async fn write_json_file<T: Serialize>(path: &Path, value: &T) -> Res
     fs::write(&temp_path, serde_json::to_vec_pretty(value)?)
         .await
         .with_context(|| format!("failed to write temp file {}", temp_path.display()))?;
+    // DST: widen the staged-write/rename gap. A crash here must leave the
+    // previous record intact and only litter a temp file.
+    let _ = patina_dst::buggify_delay!("json-store-write-rename-gap");
     if let Err(error) = fs::rename(&temp_path, path).await {
         let context = format!(
             "failed to replace {} with temp file {}",

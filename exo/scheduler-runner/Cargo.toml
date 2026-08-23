@@ -8,6 +8,6 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
-executor = { path = "../../crates/executor" }
+executor = { path = "../../crates/executor", features = ["apple-keychain"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 tracing.workspace = true

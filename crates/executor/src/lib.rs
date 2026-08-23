@@ -90,8 +90,8 @@ pub use scheduler_runtime::{
 };
 pub use scheduler_store::SchedulerStore;
 pub use scheduler_types::{
-    DEFAULT_MAX_OUTPUT_BYTES, MAX_MISSED_FIRE_CATCHUP, MissedFireOutcome, MissedFirePlan,
-    MissedPolicy, NewScheduledTask, ScheduledFireRecord, ScheduledTaskRecord,
+    DEFAULT_MAX_OUTPUT_BYTES, DEFAULT_TASK_LEASE_MS, MAX_MISSED_FIRE_CATCHUP, MissedFireOutcome,
+    MissedFirePlan, MissedPolicy, NewScheduledTask, ScheduledFireRecord, ScheduledTaskRecord,
     ScheduledTaskRunRecord, now_ms,
 };
 pub use typescript::TypeScriptHarness;

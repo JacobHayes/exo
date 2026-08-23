@@ -19,7 +19,7 @@ anyhow.workspace = true
 clap.workspace = true
 cost = { path = "../cost" }
 crossterm.workspace = true
-executor = { path = "../executor" }
+executor = { path = "../executor", features = ["apple-keychain"] }
 lingua.workspace = true
 ratatui.workspace = true
 rustyline = "15.0.0"
